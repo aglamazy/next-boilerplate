@@ -33,8 +33,37 @@ function gitShortSha() {
   }
 }
 
+// ant_executor#1947 (from #1930's app-version template, cd4fad0): pin the
+// Turbopack workspace root to THIS repo. DO NOT REMOVE.
+//
+// Next infers the "workspace root" by climbing UP from the project dir
+// looking for a lockfile and picking the OUTERMOST one — see
+// next/dist/lib/find-root.js (findRootDirAndLockFiles). The climb keys on
+// LOCKFILES ONLY (pnpm-lock.yaml, package-lock.json, yarn.lock, bun.lock,
+// bun.lockb); a bare package.json one level up does NOT trigger it, a stray
+// package-lock.json one level up DOES. When it climbs, Turbopack silently
+// compiles/resolves against the PARENT's tree instead of yours — a quiet,
+// confusing local-dev/build failure. Vercel is unaffected (it checks out
+// only your repo), which is exactly why it kept getting rediscovered one
+// lane at a time (three independent hits before it was named).
+//
+// This file SEEDS new projects, which may be checked out ANYWHERE — so the
+// pin has to travel with the seed. Fixing the parent directory of one
+// machine's checkouts (bob#43) does not protect a repo that does not exist
+// yet.
+//
+// Module format matters and is not a style choice: this config is CommonJS,
+// so `__dirname` is correct here. In an ESM config (.mjs, or "type":"module")
+// use `import.meta.dirname` instead — `import.meta` is a syntax error in CJS
+// and `__dirname` is undefined in ESM. Both variants ship in the template at
+// AgentsHead/Octopus/tools/templates/app-version/nextjs/.
 const nextConfig = {
   reactStrictMode: true,
+  // Turbopack builds (the Next 16 default):
+  turbopack: { root: __dirname },
+  // Non-Turbopack twin of the same setting, fed by the same lockfile climb.
+  // Set because this config still defines a webpack() hook below.
+  outputFileTracingRoot: __dirname,
   experimental: {
     missingSuspenseWithCSRBailout: false,
 
